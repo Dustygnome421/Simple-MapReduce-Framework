@@ -1,7 +1,10 @@
 package mapreduce
 
 import (
+	"encoding/json"
 	"hash/fnv"
+	"io/ioutil"
+	"os"
 )
 
 // doMap does the job of a map worker: it reads one of the input files
@@ -14,6 +17,7 @@ func doMap(
 	nReduce int, // the number of reduce task that will be run ("R" in the paper)
 	mapF func(file string, contents string) []KeyValue,
 ) {
+
 	// TODO:
 	// You will need to write this function.
 	// You can find the filename for this map task's input to reduce task number
@@ -41,6 +45,47 @@ func doMap(
 	//
 	// Remember to close the file after you have written all the values!
 	// Use checkError to handle errors.
+	
+	// Opening and Reading inFile to check for errors
+	// Closing the file upon storing its contents
+	file, err := os.Open(inFile)
+	checkError(err)
+
+	content, err := ioutil.ReadAll(file)
+	checkError(err)
+
+	file.Close()
+
+	// Creating Maps of the file's content by passing
+	// file name and converting the content into string
+	// kva is a keyValue struct array
+	kva := mapF(inFile, string(content))
+
+	// Creating Json Encoder and File pointer array of size nReduce
+	// for splitting hvaing access to the newly created files
+	// to later insert json data into the files
+	encs := make([]*json.Encoder, nReduce)
+	files := make([]*os.File, nReduce)
+
+	for i := 0; i < nReduce; i++ {
+		file, err := os.Create(reduceName(jobName,mapTaskNumber,i))
+		checkError(err)
+		defer file.Close()
+
+		files[i] = file
+		encs[i] = json.NewEncoder(file)
+	}
+
+	// Using the encode function, storing all the 
+	// keyValue maps into the intended files. Finding
+	// the intended files using iHash function
+	for _, kv := range kva {
+		r := ihash(kv.Key) % uint32(nReduce)
+		err := encs[r].Encode(&kv)
+		checkError(err)
+	}
+
+	// returning nothing other than the newly created files
 
 }
 
