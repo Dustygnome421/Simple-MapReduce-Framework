@@ -22,5 +22,46 @@ func (mr *Master) schedule(phase jobPhase) {
 	//
 	// TODO:
 
+	registerChan := make(chan string)
+
+	// Create a channel for each worker
+	go func ()  {
+		for {
+			worker := <-mr.registerChannel
+			registerChan <- worker
+		}
+	}()
+
+	taskChannel := make(chan int, ntasks)
+	for i := 0; i < ntasks; i++ {
+		taskChannel <- i
+	}
+
+	for len(taskChannel) > 0 {
+		task := <-taskChannel
+		go func (taskNumber int, phase jobPhase, nios int)  {
+			worker := <- registerChan
+			args := &DoTaskArgs{
+				JobName:       mr.jobName,
+				File:          mr.files[taskNumber],
+				Phase:         phase,
+				TaskNumber:    taskNumber,
+				NumOtherPhase: nios,
+			}
+			ok := call(worker, "Worker.DoTask", args, new(struct{}))
+			if ok {
+				registerChan <- worker
+				<- taskChannel
+			} else {
+				taskChannel <- taskNumber
+			}
+		}(task, phase, nios)
+	}
+
+	<- taskChannel
+
+
+	// ---------------------------
+
 	debug("Schedule: %v phase done\n", phase)
 }
