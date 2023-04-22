@@ -9,8 +9,8 @@ Finally, if you are unsure how to start the project, we recommend you visit offi
 Team members
 -----------------
 
-1. Alice (alice@wpi.edu)
-2. Bob (bob@wpi.edu)
+1. Aman Gupta (agupta9@wpi.edu)
+2. Oliver Reera (omreera@wpi.edu)
 
 Design Questions
 ------------------
