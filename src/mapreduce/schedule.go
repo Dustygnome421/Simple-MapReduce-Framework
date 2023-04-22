@@ -45,29 +45,29 @@ func (mr *Master) schedule(phase jobPhase) {
 		task := <-taskChannel
 		// Start a goroutine to do the task
 		go func (taskNumber int, phase jobPhase, nios int)  {
-			// Get a worker from the register channel
-			worker := <- mr.registerChannel
-			// Create the arguments for the DoTask RPC
-			args := &DoTaskArgs{
-				JobName:       mr.jobName,
-				File:          mr.files[taskNumber],
-				Phase:         phase,
-				TaskNumber:    taskNumber,
-				NumOtherPhase: nios,
-			}
-			// Call the DoTask RPC
-			ok := call(worker, "Worker.DoTask", args, new(ShutdownReply))
-			
-			// If the RPC was successful, put the worker back in the register channel
-			// Else, put the task number back in the task channel
-			if ok {
-				go func() { 
+
+			for {
+				// Get a worker from the register channel
+				worker := <- mr.registerChannel
+				// Create the arguments for the DoTask RPC
+				args := &DoTaskArgs{
+					JobName:       mr.jobName,
+					File:          mr.files[taskNumber],
+					Phase:         phase,
+					TaskNumber:    taskNumber,
+					NumOtherPhase: nios,
+				}
+				// Call the DoTask RPC
+				ok := call(worker, "Worker.DoTask", args, new(ShutdownReply))
+				
+				// If the RPC was successful, put the worker back in the register channel
+				// Else, put the task number back in the task channel
+				if ok {
 					// Decrement the wait group
 					wg.Done()
-					mr.registerChannel <- worker 
-				}()
-			} else {
-				taskChannel <- taskNumber
+					mr.registerChannel <- worker
+					break
+				}
 			}
 		}(task, phase, nios)
 	}
@@ -78,17 +78,4 @@ func (mr *Master) schedule(phase jobPhase) {
 	// ---------------------------
 
 	debug("Schedule: %v phase done\n", phase)
-}
-
-
-func getNextTask(jobName string, file []string, taskNumber int, phase jobPhase, nios int) (task DoTaskArgs){
-	
-	task = DoTaskArgs{
-		JobName:       jobName,
-		File:          file[taskNumber],
-		Phase:         phase,
-		TaskNumber:    taskNumber,
-		NumOtherPhase: nios,
-	}
-	return task
 }
